@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SYNCLIKA · Select</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #07070d;
+    --panel: rgba(17,17,29,0.68);
+    --panel-solid: #12121f;
+    --border: #23233d;
+    --border-lit: #34345c;
+    --cyan: #00e5ff;
+    --magenta: #ff2ec4;
+    --acid: #ccff33;
+    --accent: #6a5bff;
+    --text: #eceafc;
+    --muted: #83839f;
+    --red: #ff3d63;
+    --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+  }
+  html, body {
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+  }
+  body {
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 28px 16px;
+    position: relative;
+    overflow-x: hidden;
+  }
+  /* ── ambient backdrop ───────────────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.05) 1px, transparent 1px);
+    background-size: 42px 42px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, black, transparent);
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed; inset: -20%;
+    background:
+      radial-gradient(circle at 18% 12%, rgba(255,46,196,0.16), transparent 40%),
+      radial-gradient(circle at 82% 78%, rgba(0,229,255,0.14), transparent 42%),
+      radial-gradient(circle at 50% 100%, rgba(204,255,51,0.06), transparent 45%);
+    pointer-events: none;
+    z-index: 0;
+    animation: drift 22s ease-in-out infinite alternate;
+  }
+  @keyframes drift {
+    from { transform: translate(0,0) scale(1); }
+    to   { transform: translate(-2%, 2%) scale(1.05); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body::after { animation: none; }
+  }
+
+  .wrap { position: relative; z-index: 1; width: 100%; max-width: 560px; }
+
+  .eyebrow {
+    text-align: center; font-size: 11px; letter-spacing: 4px; color: var(--muted);
+    margin-bottom: 8px; text-transform: uppercase;
+  }
+  h1 {
+    text-align: center; font-size: 30px; font-weight: 800; letter-spacing: 1px;
+    background: linear-gradient(120deg, var(--cyan), var(--magenta) 60%, var(--acid));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 4px;
+  }
+  .tagline {
+    text-align: center; color: var(--muted); font-size: 12px; margin-bottom: 24px; letter-spacing: 0.5px;
+  }
+
+  .addr-bar {
+    display: flex; align-items: center; gap: 8px; max-width: 320px; margin: 0 auto 22px;
+    background: #0d0d18; border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px;
+  }
+  .addr-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0;
+    transition: all 0.2s ease;
+  }
+  .addr-dot.ok { background: var(--acid); box-shadow: 0 0 8px var(--acid); }
+  .addr-dot.bad { background: var(--red); box-shadow: 0 0 8px var(--red); }
+  .addr-bar input {
+    flex: 1; min-width: 0; background: transparent; border: none; color: var(--text);
+    font-family: var(--mono); font-size: 12px; outline: none;
+  }
+  .addr-bar input::placeholder { color: var(--muted); }
+  .addr-hint { font-size: 9px; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+
+  /* ── signal path (signature element) ───────────────────────── */
+  .path {
+    display: flex; align-items: center; justify-content: center; gap: 0;
+    margin-bottom: 26px; padding: 0 8px;
+  }
+  .node {
+    display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 78px;
+  }
+  .node .dot {
+    width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border-lit);
+    background: #0b0b16; transition: all 0.35s ease; position: relative;
+  }
+  .node .dot::after {
+    content: ''; position: absolute; inset: -6px; border-radius: 50%;
+    border: 1px solid transparent; transition: all 0.35s ease;
+  }
+  .node.lit:nth-child(1) .dot { background: var(--cyan); border-color: var(--cyan); box-shadow: 0 0 12px var(--cyan); }
+  .node.lit:nth-child(3) .dot { background: var(--magenta); border-color: var(--magenta); box-shadow: 0 0 12px var(--magenta); }
+  .node.lit:nth-child(5) .dot { background: var(--acid); border-color: var(--acid); box-shadow: 0 0 12px var(--acid); }
+  .node .lbl { font-size: 9px; letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase; }
+  .node.lit .lbl { color: var(--text); }
+  .node .val { font-size: 9px; color: var(--muted); max-width: 90px; text-align: center; line-height: 1.3; min-height: 12px; }
+  .node.lit .val { color: var(--cyan); }
+  .node:nth-child(3).lit .val { color: var(--magenta); }
+  .node:nth-child(5).lit .val { color: var(--acid); }
+  .link {
+    flex: 1; height: 2px; background: var(--border); margin: 0 -2px 22px; min-width: 16px;
+    position: relative; overflow: hidden; max-width: 60px;
+  }
+  .link.on { background: linear-gradient(90deg, var(--cyan), var(--magenta)); }
+  .link.on2 { background: linear-gradient(90deg, var(--magenta), var(--acid)); }
+  .link.on::before, .link.on2::before {
+    content: ''; position: absolute; inset: 0; width: 30%;
+    background: rgba(255,255,255,0.9); filter: blur(2px);
+    animation: pulse-run 1.4s linear infinite;
+  }
+  @keyframes pulse-run { from { transform: translateX(-120%); } to { transform: translateX(320%); } }
+
+  /* ── card ───────────────────────────────────────────────────── */
+  .card {
+    background: var(--panel);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 26px 24px 22px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+
+  .step { display: none; }
+  .step.active { display: block; animation: rise 0.35s ease; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .step h2 {
+    font-size: 13px; letter-spacing: 2.5px; color: var(--muted); text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .step .h2sub { font-size: 11px; color: var(--muted); margin-bottom: 16px; line-height: 1.5; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tile {
+    background: #0d0d18; border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 14px; text-align: left; cursor: pointer; color: var(--text);
+    font-family: var(--mono); transition: all 0.15s ease; position: relative;
+  }
+  .tile:hover { border-color: var(--border-lit); transform: translateY(-1px); }
+  .tile:active { transform: translateY(0) scale(0.98); }
+  .tile .ic { font-size: 22px; margin-bottom: 8px; display: block; }
+  .tile .t { font-size: 13px; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.3px; }
+  .tile .d { font-size: 10px; color: var(--muted); line-height: 1.5; }
+  .tile.sel { border-color: var(--cyan); background: rgba(0,229,255,0.07); box-shadow: 0 0 0 1px var(--cyan) inset; }
+  .tile.sel.magenta { border-color: var(--magenta); background: rgba(255,46,196,0.08); box-shadow: 0 0 0 1px var(--magenta) inset; }
+
+  .chips { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .chip {
+    background: #0d0d18; border: 1px solid var(--border); border-radius: 12px;
+    padding: 13px 10px; text-align: center; cursor: pointer; color: var(--text);
+    font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.4px;
+    transition: all 0.15s ease;
+  }
+  .chip:hover { border-color: var(--border-lit); }
+  .chip.sel { border-color: var(--acid); background: rgba(204,255,51,0.08); color: var(--acid); box-shadow: 0 0 0 1px var(--acid) inset; }
+  .chip.wide { grid-column: span 2; }
+  .chip .sub { display: block; font-size: 9px; color: var(--muted); font-weight: 400; margin-top: 3px; letter-spacing: 0.5px; }
+  .chip.sel .sub { color: var(--acid); opacity: 0.75; }
+
+  .nav-row { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; }
+  .back-btn {
+    background: transparent; border: none; color: var(--muted); font-family: var(--mono);
+    font-size: 11px; letter-spacing: 1px; cursor: pointer; padding: 8px 4px;
+  }
+  .back-btn:hover { color: var(--text); }
+  .back-btn:disabled { opacity: 0; pointer-events: none; }
+  .dots { display: flex; gap: 6px; }
+  .dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--border-lit); }
+  .dots span.on { background: var(--cyan); }
+
+  /* ── summary / launch ───────────────────────────────────────── */
+  .summary {
+    background: #0a0a13; border: 1px solid var(--border); border-radius: 14px;
+    padding: 16px; margin-bottom: 14px;
+  }
+  .summary .row { display: flex; justify-content: space-between; font-size: 11px; padding: 4px 0; color: var(--muted); }
+  .summary .row b { color: var(--text); font-weight: 600; }
+  .summary .url {
+    margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
+    font-size: 10px; color: var(--cyan); word-break: break-all; line-height: 1.5;
+  }
+  .note {
+    font-size: 10px; color: var(--muted); line-height: 1.6; margin-bottom: 14px;
+    background: rgba(255,214,10,0.06); border: 1px solid rgba(255,214,10,0.25);
+    border-radius: 10px; padding: 10px 12px; display: none;
+  }
+  .note.show { display: block; }
+  .note b { color: #ffd60a; }
+
+  .launch-btn {
+    width: 100%; padding: 16px; border-radius: 14px; border: none; cursor: pointer;
+    background: linear-gradient(120deg, var(--cyan), var(--magenta) 55%, var(--acid));
+    color: #0a0a12; font-family: var(--mono); font-weight: 800; font-size: 14px; letter-spacing: 2px;
+    text-transform: uppercase; transition: transform 0.12s ease, box-shadow 0.2s ease;
+    box-shadow: 0 8px 30px rgba(255,46,196,0.25);
+  }
+  .launch-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 34px rgba(0,229,255,0.35); }
+  .launch-btn:active { transform: translateY(0); }
+  .launch-btn:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+  .launch-btn.firing { animation: firing 0.5s ease; }
+  @keyframes firing { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.6); } }
+
+  .usb-actions { display: flex; gap: 8px; margin-top: 4px; }
+  .usb-actions button {
+    flex: 1; padding: 11px; border-radius: 10px; border: 1px solid var(--border);
+    background: #0d0d18; color: var(--text); font-family: var(--mono); font-size: 11px;
+    font-weight: 700; cursor: pointer;
+  }
+  .usb-actions button.primary { border-color: var(--cyan); color: var(--cyan); }
+  .usb-msg { font-size: 10px; color: var(--muted); margin-top: 8px; min-height: 14px; }
+  .usb-msg.ok { color: var(--acid); }
+  .usb-msg.err { color: var(--red); }
+
+  footer {
+    text-align: center; margin-top: 16px; font-size: 9px; color: var(--muted); letter-spacing: 1px;
+  }
+  footer a { color: var(--muted); }
+  footer .ver { color: var(--magenta); }
+
+  button:focus-visible, .tile:focus-visible, .chip:focus-visible {
+    outline: 2px solid var(--cyan); outline-offset: 2px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">SYNCLIKA SHARE</div>
+  <h1>SELECT</h1>
+  <p class="tagline">one path in — device, link, window</p>
+
+  <div class="addr-bar" id="addrBar">
+    <span class="addr-dot" id="addrDot"></span>
+    <input id="pcAddr" type="text" spellcheck="false" autocomplete="off" placeholder="127.0.0.1:7331">
+    <span class="addr-hint" id="addrHint">checking…</span>
+  </div>
+
+  <div class="path">
+    <div class="node" id="n1"><div class="dot"></div><div class="lbl">Device</div><div class="val" id="n1v">—</div></div>
+    <div class="link" id="l1"></div>
+    <div class="node" id="n2"><div class="dot"></div><div class="lbl">Link</div><div class="val" id="n2v">—</div></div>
+    <div class="link" id="l2"></div>
+    <div class="node" id="n3"><div class="dot"></div><div class="lbl">Window</div><div class="val" id="n3v">—</div></div>
+  </div>
+
+  <div class="card">
+
+    <!-- STEP 1 — role -->
+    <div class="step active" id="step1">
+      <h2>01 · Who's this?</h2>
+      <p class="h2sub">Pick the role of the device you're on right now.</p>
+      <div class="tiles">
+        <button type="button" class="tile" data-role="pc">
+          <span class="ic">🖥️</span>
+          <div class="t">PC</div>
+          <div class="d">This is the computer being controlled — the host.</div>
+        </button>
+        <button type="button" class="tile" data-role="phone">
+          <span class="ic">📱</span>
+          <div class="t">Phone</div>
+          <div class="d">This is the remote — mouse, keyboard, files, screen.</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- STEP 2 — mode -->
+    <div class="step" id="step2">
+      <h2>02 · How does it connect?</h2>
+      <p class="h2sub" id="step2sub">—</p>
+      <div class="tiles" id="step2tiles"></div>
+      <div class="nav-row">
+        <button type="button" class="back-btn" onclick="goStep(1)">← back</button>
+        <div class="dots"><span class="on"></span><span></span><span></span></div>
+        <span></span>
+      </div>
+    </div>
+
+    <!-- STEP 3 — duration -->
+    <div class="step" id="step3">
+      <h2>03 · Session length</h2>
+      <p class="h2sub">How long should this pairing window stay open? It self-closes at the end — no need to remember.</p>
+      <div class="chips">
+        <button type="button" class="chip" data-dur="3600000">1 Hour</button>
+        <button type="button" class="chip" data-dur="43200000">12 Hours</button>
+        <button type="button" class="chip" data-dur="86400000">24 Hours</button>
+        <button type="button" class="chip wide" data-dur="inf">Until I Close It<span class="sub">no auto-timeout</span></button>
+      </div>
+      <div class="nav-row" style="margin-bottom:16px">
+        <button type="button" class="back-btn" onclick="goStep(2)">← back</button>
+        <div class="dots"><span class="on"></span><span class="on"></span><span></span></div>
+        <span></span>
+      </div>
+
+      <div class="summary" id="summary" style="display:none">
+        <div class="row"><span>Device</span><b id="sumRole">—</b></div>
+        <div class="row"><span>Link</span><b id="sumMode">—</b></div>
+        <div class="row"><span>Window</span><b id="sumDur">—</b></div>
+        <div class="url" id="sumUrl"></div>
+      </div>
+
+      <div class="note" id="usbNote">
+        <b>USB / localhost mode:</b> <span id="usbNoteText"></span>
+        <div class="usb-actions" id="usbActions" style="display:none">
+          <button type="button" class="primary" id="btnPrepUsb">🔌 Prepare USB now</button>
+        </div>
+        <div class="usb-msg" id="usbMsg"></div>
+      </div>
+
+      <button type="button" class="launch-btn" id="launchBtn" disabled>Launch →</button>
+    </div>
+
+  </div>
+
+  <footer>
+    <span class="ver">v4.2.0</span> · P2P · LAN/USB only · no cloud ·
+    <a href="/host">host screen</a> · <a href="/pc">pc dashboard</a>
+  </footer>
+</div>
+
+<script>
+// ── PC address (makes this a portable, single-file launcher) ──────
+// If this file is served BY the SYNCLIKA server, we default to its own
+// origin. If it's opened standalone (double-clicked, on a USB stick, on a
+// phone with no server nearby), the user points it at the PC themselves —
+// remembered locally so it only has to be typed once.
+const addrInput = document.getElementById('pcAddr');
+const addrDot = document.getElementById('addrDot');
+const addrHint = document.getElementById('addrHint');
+
+function defaultAddr() {
+  if (location.protocol !== 'file:' && location.host) return location.host;
+  return localStorage.getItem('synclika_pc_addr') || '127.0.0.1:7331';
+}
+addrInput.value = defaultAddr();
+
+function getOrigin() {
+  let v = addrInput.value.trim() || '127.0.0.1:7331';
+  if (!/^https?:\/\//i.test(v)) v = 'http://' + v;
+  return v.replace(/\/+$/, '');
+}
+function isLoopbackAddr() {
+  try { return /^(127\.0\.0\.1|localhost)(:\d+)?$/.test(new URL(getOrigin()).host); }
+  catch (e) { return false; }
+}
+
+let probeTimer = null;
+async function probeOrigin() {
+  localStorage.setItem('synclika_pc_addr', addrInput.value.trim());
+  addrDot.className = 'addr-dot';
+  addrHint.textContent = 'checking…';
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 2500);
+    const r = await fetch(getOrigin() + '/info', { signal: ctrl.signal });
+    clearTimeout(t);
+    const d = await r.json();
+    addrDot.className = 'addr-dot ok';
+    addrHint.textContent = '✓ ' + (d.hostname || 'SYNCLIKA') + ' v' + (d.version || '?');
+  } catch (e) {
+    addrDot.className = 'addr-dot bad';
+    addrHint.textContent = 'unreachable';
+  }
+  updateSummary();
+}
+addrInput.addEventListener('input', () => {
+  clearTimeout(probeTimer);
+  probeTimer = setTimeout(probeOrigin, 500);
+});
+probeOrigin();
+
+const state = { role: null, mode: null, durMs: undefined, durLabel: null };
+
+const MODE_CONFIG = {
+  pc: {
+    sub: 'Choose how you\u2019ll drive this PC\u2019s dashboard.',
+    tiles: [
+      { key: 'app', ic: '⚡', t: 'App', d: 'Native SYNCLIKA window (Electron). Falls back to this browser tab if the app isn\u2019t running.', color: '' },
+      { key: 'browser', ic: '🌐', t: 'Browser', d: 'QR pairing screen — phones on the same network scan in.', color: 'magenta' },
+    ],
+  },
+  phone: {
+    sub: 'Choose how this phone reaches the PC.',
+    tiles: [
+      { key: 'app', ic: '📶', t: 'App', d: 'Wi-Fi + QR / deep link — opens the installed SYNCLIKA app.', color: '' },
+      { key: 'localhost', ic: '🔌', t: 'USB', d: 'Wired via adb reverse — this device\u2019s own localhost:7331.', color: 'magenta' },
+    ],
+  },
+};
+
+function goStep(n) {
+  document.querySelectorAll('.step').forEach((s) => s.classList.remove('active'));
+  document.getElementById('step' + n).classList.add('active');
+}
+
+function updatePath() {
+  const n1 = document.getElementById('n1'), n2 = document.getElementById('n2'), n3 = document.getElementById('n3');
+  const l1 = document.getElementById('l1'), l2 = document.getElementById('l2');
+  n1.classList.toggle('lit', !!state.role);
+  n2.classList.toggle('lit', !!state.mode);
+  n3.classList.toggle('lit', state.durMs !== undefined);
+  l1.classList.toggle('on', !!state.role && !!state.mode);
+  l2.classList.toggle('on2', !!state.mode && state.durMs !== undefined);
+  document.getElementById('n1v').textContent = state.role ? (state.role === 'pc' ? 'PC' : 'Phone') : '—';
+  document.getElementById('n2v').textContent = state.mode ? modeLabel() : '—';
+  document.getElementById('n3v').textContent = state.durLabel || '—';
+}
+
+function modeLabel() {
+  if (!state.role || !state.mode) return '—';
+  const cfg = MODE_CONFIG[state.role].tiles.find((t) => t.key === state.mode);
+  return cfg ? cfg.t : state.mode;
+}
+
+// ── STEP 1 ──────────────────────────────────────────────────────
+document.querySelectorAll('#step1 .tile').forEach((tile) => {
+  tile.addEventListener('click', () => {
+    state.role = tile.dataset.role;
+    state.mode = null;
+    document.querySelectorAll('#step1 .tile').forEach((t) => t.classList.remove('sel'));
+    tile.classList.add('sel');
+    buildStep2();
+    updatePath();
+    setTimeout(() => goStep(2), 160);
+  });
+});
+
+// ── STEP 2 ──────────────────────────────────────────────────────
+function buildStep2() {
+  const cfg = MODE_CONFIG[state.role];
+  document.getElementById('step2sub').textContent = cfg.sub;
+  const box = document.getElementById('step2tiles');
+  box.innerHTML = '';
+  cfg.tiles.forEach((t) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tile';
+    btn.dataset.mode = t.key;
+    btn.innerHTML = `<span class="ic">${t.ic}</span><div class="t">${t.t}</div><div class="d">${t.d}</div>`;
+    btn.addEventListener('click', () => {
+      state.mode = t.key;
+      box.querySelectorAll('.tile').forEach((x) => x.classList.remove('sel', 'magenta'));
+      btn.classList.add('sel');
+      if (t.color) btn.classList.add(t.color);
+      updatePath();
+      updateUsbNote();
+      setTimeout(() => goStep(3), 160);
+    });
+    box.appendChild(btn);
+  });
+}
+
+// ── STEP 3 — duration ────────────────────────────────────────────
+document.querySelectorAll('#step3 .chip').forEach((chip) => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('#step3 .chip').forEach((c) => c.classList.remove('sel'));
+    chip.classList.add('sel');
+    const raw = chip.dataset.dur;
+    state.durMs = raw === 'inf' ? null : parseInt(raw, 10);
+    state.durLabel = chip.textContent.trim().split('\n')[0];
+    updatePath();
+    updateSummary();
+    document.getElementById('launchBtn').disabled = false;
+  });
+});
+
+function fmtDest() {
+  const durQuery = state.durMs === null ? 'dur=inf' : `dur=${state.durMs}`;
+  if (state.role === 'pc' && state.mode === 'app') return { url: `${getOrigin()}/pc?${durQuery}`, action: 'navigate', local: true };
+  if (state.role === 'pc' && state.mode === 'browser') return { url: `${getOrigin()}/host?${durQuery}`, action: 'navigate', local: true };
+  if (state.role === 'phone' && state.mode === 'app') return { url: `${getOrigin()}/open?auto=1&${durQuery}`, action: 'navigate', local: false };
+  if (state.role === 'phone' && state.mode === 'localhost') {
+    if (isLoopbackAddr()) return { url: `${getOrigin()}/?${durQuery}`, action: 'navigate', local: false };
+    return { url: `${getOrigin()}/`, action: 'instructions', local: false };
+  }
+  return { url: getOrigin(), action: 'navigate', local: false };
+}
+
+function updateUsbNote() {
+  const note = document.getElementById('usbNote');
+  const actions = document.getElementById('usbActions');
+  if (state.role === 'phone' && state.mode === 'localhost') {
+    note.classList.add('show');
+    if (isLoopbackAddr()) {
+      document.getElementById('usbNoteText').textContent =
+        'This device is already tunneled over 127.0.0.1 — Launch will open the app directly.';
+      actions.style.display = 'none';
+    } else {
+      document.getElementById('usbNoteText').textContent =
+        'This phone needs USB debugging on + a cable to the PC. If you\u2019re viewing this ON the PC right now, tap below to run the adb reverse + install/launch — then open http://127.0.0.1:7331 on the phone itself.';
+      actions.style.display = 'flex';
+    }
+  } else {
+    note.classList.remove('show');
+    actions.style.display = 'none';
+  }
+}
+
+document.getElementById('btnPrepUsb').addEventListener('click', async () => {
+  const msg = document.getElementById('usbMsg');
+  msg.textContent = 'Running adb reverse + install…';
+  msg.className = 'usb-msg';
+  try {
+    const r = await fetch(getOrigin() + '/usb/connect', { method: 'POST' });
+    const j = await r.json();
+    if (j.ok) {
+      msg.textContent = '✓ USB ready — open http://127.0.0.1:7331 on the phone now.';
+      msg.className = 'usb-msg ok';
+    } else {
+      msg.textContent = '✗ ' + (j.error || 'USB debugging on? Cable plugged in?');
+      msg.className = 'usb-msg err';
+    }
+  } catch (e) {
+    msg.textContent = '✗ Could not reach the local server — run this from the PC.';
+    msg.className = 'usb-msg err';
+  }
+});
+
+function updateSummary() {
+  document.getElementById('summary').style.display = 'block';
+  document.getElementById('sumRole').textContent = state.role === 'pc' ? 'PC (host)' : 'Phone (remote)';
+  document.getElementById('sumMode').textContent = modeLabel();
+  document.getElementById('sumDur').textContent = state.durLabel || '—';
+  document.getElementById('sumUrl').textContent = '→ ' + fmtDest().url;
+}
+
+// ── LAUNCH ────────────────────────────────────────────────────────
+document.getElementById('launchBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('launchBtn');
+  btn.disabled = true;
+  btn.classList.add('firing');
+  btn.textContent = 'Opening…';
+
+  const dest = fmtDest();
+
+  // Best-effort: tell the server the pairing window length (only works when
+  // this tab is genuinely local to the PC — a phone on the LAN gets a
+  // harmless 403 and just relies on its own client-side countdown instead).
+  try {
+    await fetch(getOrigin() + '/session/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ durationMs: state.durMs, label: state.durLabel }),
+    });
+  } catch (e) { /* not local — fine */ }
+
+  setTimeout(() => {
+    if (dest.action === 'instructions') {
+      btn.classList.remove('firing');
+      btn.disabled = false;
+      btn.textContent = 'Launch →';
+      updateUsbNote();
+      document.getElementById('usbNote').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      location.href = dest.url;
+    }
+  }, 420);
+});
+
+updatePath();
+</script>
+</body>
+</html>
