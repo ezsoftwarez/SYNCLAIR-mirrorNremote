@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SYNCLAIR · mirrorNremote</title>
+  <meta name="description" content="Lightning-fast mirror and remote management dashboard" />
+  <style>
+    /* ── Reset & Variables ───────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0c10;
+      --surface:   rgba(255,255,255,.05);
+      --surface2:  rgba(255,255,255,.08);
+      --border:    rgba(255,255,255,.1);
+      --accent:    #7c3aed;
+      --accent2:   #06b6d4;
+      --accent3:   #10b981;
+      --danger:    #ef4444;
+      --warn:      #f59e0b;
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --radius:    14px;
+      --glow:      0 0 40px rgba(124,58,237,.25);
+      --font:      'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    /* ── Base ────────────────────────────────────────────────────── */
+    html { height: 100%; scroll-behavior: smooth; }
+    body {
+      min-height: 100vh;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    /* animated mesh gradient background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% 10%, rgba(124,58,237,.18) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 80%, rgba(6,182,212,.15) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 60% at 50% 50%, rgba(16,185,129,.08) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Scrollbar ───────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+    /* ── Layout ──────────────────────────────────────────────────── */
+    #app {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 100vh;
+    }
+
+    /* ── Topbar ──────────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 28px;
+      background: rgba(10,12,16,.8);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -.3px;
+      white-space: nowrap;
+    }
+    .logo-icon {
+      width: 34px;
+      height: 34px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      box-shadow: var(--glow);
+      flex-shrink: 0;
+    }
+    .logo-text { color: var(--text); }
+    .logo-text span { color: var(--accent2); }
+
+    .search-wrap {
+      flex: 1;
+      max-width: 400px;
+      position: relative;
+    }
+    .search-wrap input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 30px;
+      padding: 8px 16px 8px 38px;
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .search-wrap input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(124,58,237,.2);
+    }
+    .search-wrap input::placeholder { color: var(--muted); }
+    .search-icon {
+      position: absolute;
+      left: 13px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      font-size: 14px;
+      pointer-events: none;
+    }
+    .kbd {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 2px 6px;
+      white-space: nowrap;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      outline: none;
+      transition: all .18s;
+      white-space: nowrap;
+    }
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--surface); color: var(--text); }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #6d28d9);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(124,58,237,.35);
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(124,58,237,.45);
+    }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+    .btn-icon {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all .18s;
+    }
+    .btn-icon:hover { background: var(--surface2); color: var(--text); border-color: rgba(255,255,255,.2); }
+
+    /* status dot */
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent3);
+      box-shadow: 0 0 8px var(--accent3);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50% { opacity: .4; }
+    }
+
+    /* ── Main content ────────────────────────────────────────────── */
+    main {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      min-height: 0;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────────── */
+    nav {
+      padding: 20px 12px;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      position: sticky;
+      top: 63px;
+      height: calc(100vh - 63px);
+      overflow-y: auto;
+    }
+    .nav-section {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 14px 10px 6px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      border-radius: 10px;
+      font-size: 13.5px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all .15s;
+      user-select: none;
+      position: relative;
+    }
+    .nav-item:hover { background: var(--surface); color: var(--text); }
+    .nav-item.active {
+      background: rgba(124,58,237,.15);
+      color: #c4b5fd;
+      border: 1px solid rgba(124,58,237,.25);
+    }
+    .nav-item .icon { font-size: 15px; width: 20px; text-align: center; }
+    .nav-badge {
+      margin-left: auto;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 20px;
+      background: var(--accent);
+      color: #fff;
+    }
+    .nav-badge.green { background: var(--accent3); }
+    .nav-badge.yellow { background: var(--warn); color: #000; }
+
+    /* ── Page area ───────────────────────────────────────────────── */
+    #page {
+      padding: 28px 32px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* ── Page header ─────────────────────────────────────────────── */
+    .page-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .page-title { font-size: 26px; font-weight: 700; letter-spacing: -.4px; }
+    .page-title small {
+      display: block;
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* ── Stats row ───────────────────────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 14px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: border-color .2s, transform .2s;
+    }
+    .stat-card:hover { border-color: rgba(255,255,255,.18); transform: translateY(-2px); }
+    .stat-label { font-size: 11.5px; color: var(--muted); font-weight: 500; letter-spacing: .2px; }
+    .stat-value { font-size: 28px; font-weight: 700; letter-spacing: -.5px; line-height: 1; }
+    .stat-value.purple { color: #c4b5fd; }
+    .stat-value.cyan   { color: var(--accent2); }
+    .stat-value.green  { color: var(--accent3); }
+    .stat-value.yellow { color: var(--warn); }
+    .stat-sub { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+    .stat-sub .up   { color: var(--accent3); }
+    .stat-sub .down { color: var(--danger); }
+
+    /* ── Section ─────────────────────────────────────────────────── */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-title .icon { font-size: 16px; }
+
+    /* ── Table ───────────────────────────────────────────────────── */
+    .table-wrap { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    thead th {
+      text-align: left;
+      padding: 10px 20px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,.04);
+      transition: background .15s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+    td { padding: 13px 20px; vertical-align: middle; }
+
+    .cell-name {
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+    .cell-url { color: var(--muted); font-size: 12px; font-family: monospace; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cell-actions { display: flex; align-items: center; gap: 6px; }
+
+    /* tags / pills */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .tag-green  { background: rgba(16,185,129,.15);  color: var(--accent3); border: 1px solid rgba(16,185,129,.25); }
+    .tag-purple { background: rgba(124,58,237,.15);  color: #c4b5fd; border: 1px solid rgba(124,58,237,.25); }
+    .tag-cyan   { background: rgba(6,182,212,.15);   color: var(--accent2); border: 1px solid rgba(6,182,212,.25); }
+    .tag-red    { background: rgba(239,68,68,.15);   color: #fca5a5; border: 1px solid rgba(239,68,68,.25); }
+    .tag-yellow { background: rgba(245,158,11,.15);  color: var(--warn); border: 1px solid rgba(245,158,11,.25); }
+    .tag-gray   { background: rgba(100,116,139,.12); color: var(--muted); border: 1px solid rgba(100,116,139,.2); }
+
+    /* progress bar */
+    .progress-bar {
+      height: 4px;
+      border-radius: 4px;
+      background: var(--surface2);
+      overflow: hidden;
+      min-width: 80px;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 4px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transition: width .6s ease;
+    }
+
+    /* ── Activity log ────────────────────────────────────────────── */
+    .log-list { padding: 0; list-style: none; }
+    .log-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: start;
+      gap: 12px;
+      padding: 12px 20px;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+      font-size: 13px;
+      transition: background .15s;
+    }
+    .log-item:last-child { border-bottom: none; }
+    .log-item:hover { background: var(--surface2); }
+    .log-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-top: 5px;
+      flex-shrink: 0;
+    }
+    .log-dot.green  { background: var(--accent3); box-shadow: 0 0 6px var(--accent3); }
+    .log-dot.cyan   { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+    .log-dot.yellow { background: var(--warn); }
+    .log-dot.red    { background: var(--danger); }
+    .log-msg { color: var(--text); line-height: 1.5; }
+    .log-msg b { font-weight: 600; }
+    .log-time { font-size: 11px; color: var(--muted); white-space: nowrap; margin-top: 3px; }
+
+    /* ── Modal ───────────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.65);
+      backdrop-filter: blur(6px);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: #13151d;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 30px;
+      width: min(480px, 95vw);
+      transform: translateY(20px) scale(.97);
+      transition: transform .25s cubic-bezier(.16,1,.3,1);
+      box-shadow: 0 24px 80px rgba(0,0,0,.5), var(--glow);
+    }
+    .modal-overlay.open .modal { transform: none; }
+    .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+    .modal-sub { font-size: 13px; color: var(--muted); margin-bottom: 22px; }
+    .modal-close {
+      float: right;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 20px;
+      cursor: pointer;
+      line-height: 1;
+      transition: color .15s;
+      margin-top: -4px;
+    }
+    .modal-close:hover { color: var(--text); }
+
+    /* ── Form ────────────────────────────────────────────────────── */
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; letter-spacing: .3px; }
+    input[type=text], input[type=url], select, textarea {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 13.5px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(124,58,237,.18);
+    }
+    input::placeholder, textarea::placeholder { color: var(--muted); }
+    select option { background: #1a1d2b; }
+    textarea { resize: vertical; min-height: 80px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; }
+
+    /* ── Notification toast ──────────────────────────────────────── */
+    #toasts {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 300;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .toast {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #1e2130;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 18px;
+      font-size: 13px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.4);
+      transform: translateX(120%);
+      transition: transform .35s cubic-bezier(.16,1,.3,1), opacity .35s;
+      opacity: 0;
+      pointer-events: all;
+      max-width: 340px;
+    }
+    .toast.show { transform: translateX(0); opacity: 1; }
+    .toast.success { border-color: rgba(16,185,129,.3); }
+    .toast.error   { border-color: rgba(239,68,68,.3); }
+    .toast.info    { border-color: rgba(6,182,212,.3); }
+    .toast-icon { font-size: 16px; flex-shrink: 0; }
+
+    /* ── Keyboard shortcut overlay ───────────────────────────────── */
+    #shortcuts-overlay .modal {
+      width: min(560px, 95vw);
+    }
+    .shortcut-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .shortcut-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: var(--surface);
+      border-radius: 8px;
+      font-size: 12.5px;
+    }
+    .shortcut-row span { color: var(--muted); }
+    .shortcut-keys { display: flex; gap: 4px; }
+
+    /* ── Responsive ──────────────────────────────────────────────── */
+    @media (max-width: 860px) {
+      main { grid-template-columns: 1fr; }
+      nav { position: static; height: auto; flex-direction: row; flex-wrap: wrap; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--border); padding: 8px 12px; }
+      .nav-section { display: none; }
+      #page { padding: 20px 16px; }
+    }
+    @media (max-width: 560px) {
+      header { flex-wrap: wrap; }
+      .search-wrap { order: 3; max-width: 100%; width: 100%; }
+    }
+
+    /* ── Misc helpers ────────────────────────────────────────────── */
+    .flex { display: flex; align-items: center; }
+    .gap8 { gap: 8px; }
+    .gap12 { gap: 12px; }
+    .text-right { text-align: right; }
+    .text-muted { color: var(--muted); font-size: 12px; }
+    .empty-state {
+      padding: 48px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .empty-state .empty-icon { font-size: 36px; margin-bottom: 10px; }
+    .divider { height: 1px; background: var(--border); }
+
+    /* glow accent line under stat cards */
+    .stat-card::after {
+      content: '';
+      display: block;
+      height: 2px;
+      border-radius: 2px;
+      margin-top: 4px;
+    }
+    .stat-card:nth-child(1)::after { background: linear-gradient(90deg, var(--accent), transparent); }
+    .stat-card:nth-child(2)::after { background: linear-gradient(90deg, var(--accent2), transparent); }
+    .stat-card:nth-child(3)::after { background: linear-gradient(90deg, var(--accent3), transparent); }
+    .stat-card:nth-child(4)::after { background: linear-gradient(90deg, var(--warn), transparent); }
+
+    /* spinning sync icon */
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* fade-in for page sections */
+    .fade-in { animation: fadeIn .3s ease both; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+    /* ── Sparkline (mini SVG charts) ─────────────────────────────── */
+    .sparkline { vertical-align: bottom; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Top bar ──────────────────────────────────────────────────── -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">⟳</div>
+      <div class="logo-text">SYNC<span>LAIR</span></div>
+    </div>
+
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="global-search" placeholder="Search mirrors, remotes… (/)" autocomplete="off" />
+    </div>
+
+    <div class="header-actions">
+      <span class="kbd">?</span>
+      <div class="status-dot" title="All systems online"></div>
+      <button class="btn-icon" id="btn-refresh" title="Refresh all (R)">↻</button>
+      <button class="btn btn-primary" id="btn-add" style="gap:6px"><span>＋</span> Add</button>
+    </div>
+  </header>
+
+  <!-- ── Body ─────────────────────────────────────────────────────── -->
+  <main>
+
+    <!-- ── Sidebar ─────────────────────────────────────────────────── -->
+    <nav id="sidebar">
+      <div class="nav-section">Overview</div>
+      <div class="nav-item active" data-view="dashboard"><span class="icon">⬡</span> Dashboard</div>
+
+      <div class="nav-section">Mirrors</div>
+      <div class="nav-item" data-view="mirrors"><span class="icon">⟳</span> Mirrors <span class="nav-badge" id="badge-mirrors">0</span></div>
+      <div class="nav-item" data-view="sync-history"><span class="icon">📋</span> Sync History</div>
+
+      <div class="nav-section">Remotes</div>
+      <div class="nav-item" data-view="remotes"><span class="icon">🔗</span> Remotes <span class="nav-badge green" id="badge-remotes">0</span></div>
+      <div class="nav-item" data-view="access-keys"><span class="icon">🔑</span> Access Keys</div>
+
+      <div class="nav-section">System</div>
+      <div class="nav-item" data-view="activity"><span class="icon">📡</span> Activity Log <span class="nav-badge yellow" id="badge-activity">0</span></div>
+      <div class="nav-item" data-view="settings"><span class="icon">⚙️</span> Settings</div>
+    </nav>
+
+    <!-- ── Page ────────────────────────────────────────────────────── -->
+    <div id="page"></div>
+  </main>
+</div>
+
+<!-- ── Add modal ─────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <button class="modal-close" id="modal-close" aria-label="Close">×</button>
+    <div class="modal-title" id="modal-title">Add Mirror / Remote</div>
+    <div class="modal-sub">Configure a new mirror or remote connection.</div>
+    <form id="add-form">
+      <div class="form-group">
+        <label for="type-select">TYPE</label>
+        <select id="type-select">
+          <option value="mirror">Mirror (full repository clone)</option>
+          <option value="remote">Remote (upstream connection)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="name-input">NAME</label>
+        <input type="text" id="name-input" placeholder="e.g. origin-backup" required />
+      </div>
+      <div class="form-group">
+        <label for="url-input">URL</label>
+        <input type="url" id="url-input" placeholder="https://github.com/org/repo.git" required />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="interval-input">SYNC INTERVAL (min)</label>
+          <input type="text" id="interval-input" placeholder="30" />
+        </div>
+        <div class="form-group">
+          <label for="branch-input">DEFAULT BRANCH</label>
+          <input type="text" id="branch-input" placeholder="main" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="notes-input">NOTES (optional)</label>
+        <textarea id="notes-input" placeholder="Describe this connection…"></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-ghost" id="modal-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add Connection</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Keyboard shortcuts modal ──────────────────────────────────── -->
+<div class="modal-overlay" id="shortcuts-overlay">
+  <div class="modal" id="shortcuts-modal" role="dialog" aria-modal="true">
+    <button class="modal-close" id="shortcuts-close">×</button>
+    <div class="modal-title">⌨️ Keyboard Shortcuts</div>
+    <div class="modal-sub">Navigate SYNCLAIR at maximum speed.</div>
+    <div class="shortcut-grid">
+      <div class="shortcut-row"><span>Search</span><div class="shortcut-keys"><kbd class="kbd">/</kbd></div></div>
+      <div class="shortcut-row"><span>Add new</span><div class="shortcut-keys"><kbd class="kbd">A</kbd></div></div>
+      <div class="shortcut-row"><span>Dashboard</span><div class="shortcut-keys"><kbd class="kbd">G</kbd><kbd class="kbd">D</kbd></div></div>
+      <div class="shortcut-row"><span>Mirrors</span><div class="shortcut-keys"><kbd class="kbd">G</kbd><kbd class="kbd">M</kbd></div></div>
+      <div class="shortcut-row"><span>Remotes</span><div class="shortcut-keys"><kbd class="kbd">G</kbd><kbd class="kbd">R</kbd></div></div>
+      <div class="shortcut-row"><span>Activity log</span><div class="shortcut-keys"><kbd class="kbd">G</kbd><kbd class="kbd">L</kbd></div></div>
+      <div class="shortcut-row"><span>Refresh all</span><div class="shortcut-keys"><kbd class="kbd">R</kbd></div></div>
+      <div class="shortcut-row"><span>Close / Escape</span><div class="shortcut-keys"><kbd class="kbd">Esc</kbd></div></div>
+      <div class="shortcut-row"><span>Shortcuts help</span><div class="shortcut-keys"><kbd class="kbd">?</kbd></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast container ───────────────────────────────────────────── -->
+<div id="toasts" aria-live="polite"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   SYNCLAIR · mirrorNremote  —  single-page JS dashboard
+   ═══════════════════════════════════════════════════════════════════ */
+
+// ── Persistence ──────────────────────────────────────────────────────
+const STORE_KEY = 'synclair_data';
+function load() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || defaultData(); }
+  catch { return defaultData(); }
+}
+function save(data) {
+  localStorage.setItem(STORE_KEY, JSON.stringify(data));
+}
+function defaultData() {
+  return {
+    mirrors: [
+      { id: uid(), name: 'origin-backup', url: 'https://github.com/ezsoftwarez/SYNCLAIR-mirrorNremote.git', branch: 'main', interval: 30, status: 'synced', lastSync: Date.now() - 3 * 60000, notes: 'Primary mirror backup' },
+      { id: uid(), name: 'prod-mirror',   url: 'https://gitlab.com/ezsoftwarez/synclair.git', branch: 'main', interval: 60, status: 'syncing', lastSync: Date.now() - 10 * 60000, notes: '' },
+      { id: uid(), name: 'archive-2024',  url: 'https://bitbucket.org/ezsoftwarez/archive.git', branch: 'archive', interval: 120, status: 'error', lastSync: Date.now() - 3600000, notes: 'Annual archive copy' },
+    ],
+    remotes: [
+      { id: uid(), name: 'upstream', url: 'https://github.com/original/repo.git', branch: 'main', interval: 15, status: 'online', lastSync: Date.now() - 60000, notes: '' },
+      { id: uid(), name: 'deploy',   url: 'git@vps.example.com:apps/synclair.git', branch: 'release', interval: 0, status: 'online', lastSync: Date.now() - 1800000, notes: 'Production server' },
+    ],
+    activity: [
+      { id: uid(), type: 'success', msg: '<b>origin-backup</b> synced successfully — 3 commits ahead', ts: Date.now() - 3 * 60000 },
+      { id: uid(), type: 'info',    msg: '<b>prod-mirror</b> sync started', ts: Date.now() - 5 * 60000 },
+      { id: uid(), type: 'success', msg: '<b>upstream</b> remote is reachable — latency 42 ms', ts: Date.now() - 12 * 60000 },
+      { id: uid(), type: 'error',   msg: '<b>archive-2024</b> sync failed: authentication error', ts: Date.now() - 3600000 },
+      { id: uid(), type: 'info',    msg: 'SYNCLAIR started', ts: Date.now() - 7200000 },
+    ],
+  };
+}
+function uid() { return Math.random().toString(36).slice(2, 10); }
+
+let DB = load();
+
+// ── Router ────────────────────────────────────────────────────────────
+let currentView = 'dashboard';
+const views = {
+  dashboard:    renderDashboard,
+  mirrors:      renderMirrors,
+  'sync-history': renderSyncHistory,
+  remotes:      renderRemotes,
+  'access-keys': renderAccessKeys,
+  activity:     renderActivity,
+  settings:     renderSettings,
+};
+
+function navigate(view) {
+  if (!views[view]) return;
+  currentView = view;
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.view === view);
+  });
+  render();
+}
+
+function render() {
+  const page = document.getElementById('page');
+  page.innerHTML = '';
+  const el = views[currentView]();
+  el.classList.add('fade-in');
+  page.appendChild(el);
+  updateBadges();
+}
+
+// ── Badge update ──────────────────────────────────────────────────────
+function updateBadges() {
+  document.getElementById('badge-mirrors').textContent = DB.mirrors.length;
+  document.getElementById('badge-remotes').textContent = DB.remotes.length;
+  document.getElementById('badge-activity').textContent = DB.activity.filter(e => e.type === 'error').length || '';
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────
+function timeAgo(ts) {
+  const diff = Math.round((Date.now() - ts) / 1000);
+  if (diff < 60)   return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+  return `${Math.floor(diff/86400)}d ago`;
+}
+function statusTag(status) {
+  const map = {
+    synced:  ['green',  '✓ synced'],
+    syncing: ['cyan',   '↻ syncing'],
+    error:   ['red',    '✕ error'],
+    online:  ['green',  '● online'],
+    offline: ['red',    '○ offline'],
+    pending: ['yellow', '⏳ pending'],
+  };
+  const [cls, label] = map[status] || ['gray', status];
+  return `<span class="tag tag-${cls}">${label}</span>`;
+}
+function h(tag, attrs = {}, ...children) {
+  const el = document.createElement(tag);
+  Object.entries(attrs).forEach(([k, v]) => {
+    if (k === 'class') el.className = v;
+    else if (k === 'html') el.innerHTML = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v);
+  });
+  children.flat().forEach(c => c && el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c));
+  return el;
+}
+function div(cls, ...children) { return h('div', { class: cls }, ...children); }
+function section(...children) { return div('section', ...children); }
+
+// ── Views ─────────────────────────────────────────────────────────────
+function renderDashboard() {
+  const wrap = div('');
+  wrap.style.display = 'contents';
+
+  // Page header
+  const hdr = div('page-header');
+  hdr.innerHTML = `
+    <div class="page-title">Dashboard <small>Welcome back — everything at a glance</small></div>
+    <div class="flex gap8">
+      <button class="btn btn-ghost btn-sm" id="dash-shortcuts">⌨️ Shortcuts</button>
+      <button class="btn btn-primary btn-sm" id="dash-sync-all">↻ Sync All</button>
+    </div>`;
+
+  // Stats
+  const mirrorsOk = DB.mirrors.filter(m => m.status === 'synced').length;
+  const remotesOk = DB.remotes.filter(r => r.status === 'online').length;
+  const errors    = DB.activity.filter(a => a.type === 'error').length;
+
+  const statsGrid = div('stats-grid');
+  statsGrid.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">MIRRORS</div>
+      <div class="stat-value purple">${DB.mirrors.length}</div>
+      <div class="stat-sub"><span class="up">↑</span> ${mirrorsOk} healthy</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">REMOTES</div>
+      <div class="stat-value cyan">${DB.remotes.length}</div>
+      <div class="stat-sub"><span class="up">↑</span> ${remotesOk} online</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">TOTAL SYNCS</div>
+      <div class="stat-value green">${DB.activity.filter(a=>a.type==='success').length}</div>
+      <div class="stat-sub">last 24h</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">ERRORS</div>
+      <div class="stat-value yellow">${errors}</div>
+      <div class="stat-sub">${errors ? '<span class="down">↓ needs attention</span>' : 'all clear'}</div>
+    </div>`;
+
+  // Quick mirrors table
+  const mirrorSec = section(
+    div('section-head', (() => { const d = div(''); d.innerHTML = `<div class="section-title"><span class="icon">⟳</span> Mirrors</div><button class="btn btn-primary btn-sm" id="quick-add-mirror">＋ Add Mirror</button>`; return d; })())
+  );
+  const tw = div('table-wrap');
+  tw.innerHTML = buildMirrorTable(DB.mirrors.slice(0, 3));
+  mirrorSec.appendChild(tw);
+
+  // Activity section
+  const actSec = section(
+    div('section-head', (() => { const d = div(''); d.innerHTML = `<div class="section-title"><span class="icon">📡</span> Recent Activity</div><button class="btn btn-ghost btn-sm" onclick="navigate('activity')">View all</button>`; return d; })())
+  );
+  const logList = document.createElement('ul');
+  logList.className = 'log-list';
+  DB.activity.slice(0, 5).forEach(item => {
+    logList.innerHTML += buildLogItem(item);
+  });
+  actSec.appendChild(logList);
+
+  wrap.append(hdr, statsGrid, mirrorSec, actSec);
+
+  setTimeout(() => {
+    const ds = document.getElementById('dash-shortcuts');
+    if (ds) ds.onclick = () => openModal('shortcuts-overlay');
+    const dsa = document.getElementById('dash-sync-all');
+    if (dsa) dsa.onclick = syncAll;
+    const qam = document.getElementById('quick-add-mirror');
+    if (qam) qam.onclick = () => openAddModal('mirror');
+  }, 0);
+
+  return wrap;
+}
+
+function buildMirrorTable(mirrors) {
+  if (!mirrors.length) return `<div class="empty-state"><div class="empty-icon">🪞</div>No mirrors yet. <button class="btn btn-primary btn-sm" onclick="openAddModal('mirror')" style="margin-left:8px">＋ Add Mirror</button></div>`;
+  return `<div class="table-wrap"><table>
+    <thead><tr><th>Name</th><th>URL</th><th>Branch</th><th>Status</th><th>Last Sync</th><th>Actions</th></tr></thead>
+    <tbody>${mirrors.map(m => `<tr>
+      <td><div class="cell-name">🪞 ${esc(m.name)}</div></td>
+      <td><div class="cell-url" title="${esc(m.url)}">${esc(m.url)}</div></td>
+      <td><span class="tag tag-purple">${esc(m.branch||'main')}</span></td>
+      <td>${statusTag(m.status)}</td>
+      <td class="text-muted">${timeAgo(m.lastSync)}</td>
+      <td><div class="cell-actions">
+        <button class="btn btn-ghost btn-sm" onclick="syncItem('mirror','${m.id}')">↻</button>
+        <button class="btn btn-ghost btn-sm" onclick="deleteItem('mirror','${m.id}')">🗑</button>
+      </div></td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+function buildRemoteTable(remotes) {
+  if (!remotes.length) return `<div class="empty-state"><div class="empty-icon">🔗</div>No remotes yet. <button class="btn btn-primary btn-sm" onclick="openAddModal('remote')" style="margin-left:8px">＋ Add Remote</button></div>`;
+  return `<div class="table-wrap"><table>
+    <thead><tr><th>Name</th><th>URL</th><th>Branch</th><th>Status</th><th>Last Check</th><th>Actions</th></tr></thead>
+    <tbody>${remotes.map(r => `<tr>
+      <td><div class="cell-name">🔗 ${esc(r.name)}</div></td>
+      <td><div class="cell-url" title="${esc(r.url)}">${esc(r.url)}</div></td>
+      <td><span class="tag tag-cyan">${esc(r.branch||'main')}</span></td>
+      <td>${statusTag(r.status)}</td>
+      <td class="text-muted">${timeAgo(r.lastSync)}</td>
+      <td><div class="cell-actions">
+        <button class="btn btn-ghost btn-sm" onclick="pingRemote('${r.id}')">Ping</button>
+        <button class="btn btn-ghost btn-sm" onclick="deleteItem('remote','${r.id}')">🗑</button>
+      </div></td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+function buildLogItem(item) {
+  const cls = { success:'green', error:'red', info:'cyan', warn:'yellow' }[item.type] || 'gray';
+  return `<li class="log-item">
+    <div class="log-dot ${cls}"></div>
+    <div class="log-msg">${item.msg}</div>
+    <div class="log-time">${timeAgo(item.ts)}</div>
+  </li>`;
+}
+
+function renderMirrors() {
+  const wrap = div('');
+  wrap.style.display = 'contents';
+  const hdr = div('page-header');
+  hdr.innerHTML = `<div class="page-title">Mirrors <small>${DB.mirrors.length} configured</small></div>
+    <div class="flex gap8">
+      <button class="btn btn-ghost btn-sm" onclick="syncAll()">↻ Sync All</button>
+      <button class="btn btn-primary btn-sm" onclick="openAddModal('mirror')">＋ Add Mirror</button>
+    </div>`;
+
+  const sec = section(
+    div('section-head', (() => { const d = div(''); d.innerHTML = `<div class="section-title"><span class="icon">⟳</span> All Mirrors</div>`; return d; })())
+  );
+  sec.innerHTML += buildMirrorTable(DB.mirrors);
+  wrap.append(hdr, sec);
+  return wrap;
+}
+
+function renderRemotes() {
+  const wrap = div('');
+  wrap.style.display = 'contents';
+  const hdr = div('page-header');
+  hdr.innerHTML = `<div class="page-title">Remotes <small>${DB.remotes.length} configured</small></div>
+    <button class="btn btn-primary btn-sm" onclick="openAddModal('remote')">＋ Add Remote</button>`;
+
+  const sec = section(
+    div('section-head', (() => { const d = div(''); d.innerHTML = `<div class="section-title"><span class="icon">🔗</span> All Remotes</div>`; return d; })())
+  );
+  sec.innerHTML += buildRemoteTable(DB.remotes);
+  wrap.append(hdr, sec);
+  return wrap;
+}
+
+function renderActivity() {
+  const wrap = div('');
+  wrap.style.display = 'contents';
+  const hdr = div('page-header');
+  hdr.innerHTML = `<div class="page-title">Activity Log <small>Full event stream</small></div>
+    <button class="btn btn-ghost btn-sm" onclick="clearActivity()">Clear log</button>`;
+
+  const sec = section(
+    div('section-head', (() => { const d = div(''); d.innerHTML = `<div class="section-title"><span class="icon">📡</span> Events</div>`; return d; })())
+  );
+  if (!DB.activity.length) {
+    sec.innerHTML += `<div class="empty-state"><div class="empty-icon">📭</div>No activity yet.</div>`;
+  } else {
+    const logList = document.createElement('ul');
+    logList.className = 'log-list';
+    DB.activity.forEach(item => { logList.innerHTML += buildLogItem(item); });
+    sec.appendChild(logList);
+  }
+  wrap.append(hdr, sec);
+  return wrap;
+}
+
+function renderSyncHistory() {
+  const wrap = div('');
+  wrap.style.display = 'contents';
+  wrap.innerHTML = `
+    <div class="page-header"><div class="page-title">Sync History <small>Past operations</small></div></div>
+    <div class="section">
+      <div class="section-head"><div class="section-title"><span class="icon">📋</span> History</div></div>
+      ${DB.activity.filter(a=>a.type==='success'||a.type==='error').length
+        ? `<ul class="log-list">${DB.activity.filter(a=>a.type==='success'||a.type==='error').map(buildLogItem).join('')}</ul>`
+        : `<div class="empty-state"><div class="empty-icon">📭</div>No sync operations recorded yet.</div>`}
+    </div>`;
+  return wrap;
+}
+
+function renderAccessKeys() {
+  const wrap = div('');
+  wrap.style.display = 'contents';
+  wrap.innerHTML = `
+    <div class="page-header">
+      <div class="page-title">Access Keys <small>SSH & deploy tokens</small></div>
+      <button class="btn btn-primary btn-sm">＋ Add Key</button>
+    </div>
+    <div class="section">
+      <div class="section-head"><div class="section-title"><span class="icon">🔑</span> Stored Keys</div></div>
+      <div class="empty-state"><div class="empty-icon">🔑</div>No access keys configured.<br><span style="font-size:12px;margin-top:6px;display:block">Add SSH keys or deploy tokens to enable authenticated sync.</span></div>
+    </div>`;
+  return wrap;
+}
+
+function renderSettings() {
+  const wrap = div('');
+  wrap.style.display = 'contents';
+  wrap.innerHTML = `
+    <div class="page-header"><div class="page-title">Settings <small>Global configuration</small></div></div>
+    <div class="section">
+      <div class="section-head"><div class="section-title">⚙️ General</div></div>
+      <div style="padding:24px 20px;display:flex;flex-direction:column;gap:20px;">
+        <div class="form-group"><label>DEFAULT SYNC INTERVAL (minutes)</label><input type="text" value="30" style="max-width:180px" /></div>
+        <div class="form-group"><label>DEFAULT BRANCH</label><input type="text" value="main" style="max-width:180px" /></div>
+        <div class="form-group"><label>NOTIFICATIONS</label>
+          <select style="max-width:220px">
+            <option>All events</option>
+            <option>Errors only</option>
+            <option>None</option>
+          </select>
+        </div>
+        <div class="form-group"><label>DATA</label>
+          <button class="btn btn-ghost btn-sm" onclick="resetData()">⚠️ Reset all data</button>
+        </div>
+      </div>
+    </div>`;
+  return wrap;
+}
+
+// ── Actions ───────────────────────────────────────────────────────────
+function syncItem(type, id) {
+  const arr = type === 'mirror' ? DB.mirrors : DB.remotes;
+  const item = arr.find(x => x.id === id);
+  if (!item) return;
+  item.status = 'syncing';
+  save(DB);
+  render();
+  toast('info', `⟳ Syncing <b>${item.name}</b>…`);
+  setTimeout(() => {
+    item.status = 'synced';
+    item.lastSync = Date.now();
+    DB.activity.unshift({ id: uid(), type: 'success', msg: `<b>${item.name}</b> synced successfully`, ts: Date.now() });
+    save(DB);
+    render();
+    toast('success', `✓ <b>${item.name}</b> synced`);
+  }, 1800 + Math.random() * 800);
+}
+
+function syncAll() {
+  DB.mirrors.forEach(m => { m.status = 'syncing'; });
+  save(DB);
+  render();
+  toast('info', '↻ Syncing all mirrors…');
+  setTimeout(() => {
+    DB.mirrors.forEach(m => {
+      m.status = m.status === 'error' ? 'error' : 'synced';
+      m.lastSync = Date.now();
+    });
+    DB.activity.unshift({ id: uid(), type: 'success', msg: `Batch sync completed — ${DB.mirrors.length} mirrors processed`, ts: Date.now() });
+    save(DB);
+    render();
+    toast('success', `✓ All mirrors synced`);
+  }, 2200);
+}
+
+function pingRemote(id) {
+  const item = DB.remotes.find(x => x.id === id);
+  if (!item) return;
+  toast('info', `Pinging <b>${item.name}</b>…`);
+  setTimeout(() => {
+    const latency = Math.floor(20 + Math.random() * 180);
+    item.status = 'online';
+    item.lastSync = Date.now();
+    DB.activity.unshift({ id: uid(), type: 'success', msg: `<b>${item.name}</b> reachable — latency ${latency} ms`, ts: Date.now() });
+    save(DB);
+    render();
+    toast('success', `● <b>${item.name}</b> online (${latency} ms)`);
+  }, 900 + Math.random() * 600);
+}
+
+function deleteItem(type, id) {
+  const arr = type === 'mirror' ? DB.mirrors : DB.remotes;
+  const idx = arr.findIndex(x => x.id === id);
+  if (idx === -1) return;
+  const name = arr[idx].name;
+  arr.splice(idx, 1);
+  DB.activity.unshift({ id: uid(), type: 'info', msg: `<b>${name}</b> removed`, ts: Date.now() });
+  save(DB);
+  render();
+  toast('info', `🗑 <b>${name}</b> removed`);
+}
+
+function clearActivity() {
+  DB.activity = [];
+  save(DB);
+  render();
+  toast('info', 'Activity log cleared');
+}
+
+function resetData() {
+  if (!confirm('Reset all data? This cannot be undone.')) return;
+  DB = defaultData();
+  save(DB);
+  render();
+  toast('info', 'Data reset to defaults');
+}
+
+// ── Search ─────────────────────────────────────────────────────────────
+let searchQ = '';
+document.getElementById('global-search').addEventListener('input', function() {
+  searchQ = this.value.toLowerCase().trim();
+  if (!searchQ) { render(); return; }
+  const page = document.getElementById('page');
+  const allItems = [
+    ...DB.mirrors.map(m => ({ ...m, _type: 'mirror' })),
+    ...DB.remotes.map(r => ({ ...r, _type: 'remote' })),
+  ].filter(x => x.name.toLowerCase().includes(searchQ) || x.url.toLowerCase().includes(searchQ));
+
+  const wrap = document.createElement('div');
+  wrap.style.display = 'contents';
+  wrap.innerHTML = `<div class="page-header"><div class="page-title">Search <small>${allItems.length} result(s) for "${esc(searchQ)}"</small></div></div>`;
+
+  const sec = document.createElement('div');
+  sec.className = 'section fade-in';
+  sec.innerHTML = `<div class="section-head"><div class="section-title">🔍 Results</div></div>`;
+
+  if (!allItems.length) {
+    sec.innerHTML += `<div class="empty-state"><div class="empty-icon">🔍</div>No matches found.</div>`;
+  } else {
+    sec.innerHTML += `<table style="width:100%"><thead><tr><th>Type</th><th>Name</th><th>URL</th><th>Status</th></tr></thead><tbody>
+      ${allItems.map(x => `<tr>
+        <td><span class="tag tag-${x._type==='mirror'?'purple':'cyan'}">${x._type}</span></td>
+        <td><b>${esc(x.name)}</b></td>
+        <td class="text-muted" style="font-family:monospace;font-size:12px">${esc(x.url)}</td>
+        <td>${statusTag(x.status)}</td>
+      </tr>`).join('')}
+    </tbody></table>`;
+  }
+
+  wrap.appendChild(sec);
+  page.innerHTML = '';
+  page.appendChild(wrap);
+});
+
+// ── Modal ──────────────────────────────────────────────────────────────
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+function openAddModal(type = 'mirror') {
+  document.getElementById('type-select').value = type;
+  openModal('add-modal');
+  setTimeout(() => document.getElementById('name-input').focus(), 80);
+}
+
+document.getElementById('btn-add').onclick     = () => openAddModal();
+document.getElementById('modal-close').onclick = () => closeModal('add-modal');
+document.getElementById('modal-cancel').onclick= () => closeModal('add-modal');
+document.getElementById('shortcuts-close').onclick = () => closeModal('shortcuts-overlay');
+
+document.querySelectorAll('.modal-overlay').forEach(ov => {
+  ov.addEventListener('click', e => { if (e.target === ov) ov.classList.remove('open'); });
+});
+
+document.getElementById('add-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const type   = document.getElementById('type-select').value;
+  const name   = document.getElementById('name-input').value.trim();
+  const url    = document.getElementById('url-input').value.trim();
+  const branch = document.getElementById('branch-input').value.trim() || 'main';
+  const interval = parseInt(document.getElementById('interval-input').value) || 30;
+  const notes  = document.getElementById('notes-input').value.trim();
+
+  const item = { id: uid(), name, url, branch, interval, status: 'pending', lastSync: Date.now(), notes };
+  if (type === 'mirror') DB.mirrors.push(item);
+  else DB.remotes.push(item);
+
+  DB.activity.unshift({ id: uid(), type: 'info', msg: `<b>${name}</b> added as ${type}`, ts: Date.now() });
+  save(DB);
+  closeModal('add-modal');
+  this.reset();
+  navigate(type === 'mirror' ? 'mirrors' : 'remotes');
+  toast('success', `✓ <b>${name}</b> added`);
+});
+
+// ── Refresh button ─────────────────────────────────────────────────────
+document.getElementById('btn-refresh').addEventListener('click', function() {
+  this.classList.add('spin');
+  setTimeout(() => { this.classList.remove('spin'); syncAll(); }, 200);
+});
+
+// ── Toast ──────────────────────────────────────────────────────────────
+function toast(type, msg, duration = 3500) {
+  const icons = { success: '✅', error: '❌', info: 'ℹ️', warn: '⚠️' };
+  const container = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<span class="toast-icon">${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+  container.appendChild(t);
+  requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add('show')));
+  setTimeout(() => {
+    t.classList.remove('show');
+    t.addEventListener('transitionend', () => t.remove(), { once: true });
+  }, duration);
+}
+
+// ── Keyboard shortcuts ─────────────────────────────────────────────────
+let gSequence = '';
+let gTimer = null;
+document.addEventListener('keydown', e => {
+  const active = document.activeElement;
+  const typing = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT');
+
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+    if (active) active.blur();
+    if (typing) return;
+  }
+
+  if (typing) return;
+
+  // '/' focuses search
+  if (e.key === '/') {
+    e.preventDefault();
+    document.getElementById('global-search').focus();
+    return;
+  }
+  // '?' shows shortcuts
+  if (e.key === '?') {
+    openModal('shortcuts-overlay');
+    return;
+  }
+  // 'A' opens add
+  if (e.key === 'a' || e.key === 'A') {
+    openAddModal();
+    return;
+  }
+  // 'R' refreshes
+  if (e.key === 'r' || e.key === 'R') {
+    const btn = document.getElementById('btn-refresh');
+    btn.classList.add('spin');
+    setTimeout(() => { btn.classList.remove('spin'); syncAll(); }, 200);
+    return;
+  }
+
+  // 'G + ...' navigation sequences
+  if (e.key === 'g' || e.key === 'G') {
+    gSequence = 'g';
+    clearTimeout(gTimer);
+    gTimer = setTimeout(() => { gSequence = ''; }, 1500);
+    return;
+  }
+  if (gSequence === 'g') {
+    const nav = { d: 'dashboard', m: 'mirrors', r: 'remotes', l: 'activity', s: 'settings', k: 'access-keys' };
+    const dest = nav[e.key.toLowerCase()];
+    if (dest) {
+      e.preventDefault();
+      gSequence = '';
+      clearTimeout(gTimer);
+      navigate(dest);
+    }
+  }
+});
+
+// ── Sidebar navigation ─────────────────────────────────────────────────
+document.getElementById('sidebar').addEventListener('click', e => {
+  const item = e.target.closest('.nav-item');
+  if (item && item.dataset.view) navigate(item.dataset.view);
+});
+
+// ── XSS-safe escape ────────────────────────────────────────────────────
+function esc(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// ── Auto-refresh every 60 s ────────────────────────────────────────────
+setInterval(() => {
+  // Silently re-render current view to update "time ago" labels
+  if (!document.querySelector('.modal-overlay.open')) render();
+}, 60000);
+
+// ── Boot ───────────────────────────────────────────────────────────────
+render();
+toast('success', '⚡ SYNCLAIR ready', 2500);
+</script>
+</body>
+</html>
